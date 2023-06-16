@@ -1,68 +1,101 @@
-const request = require("request-promise"); //load web sites
+const request = require("request-promise").defaults({jar: true }); //load web sites
 const fs = require("fs");
 const cheerio = require("cheerio"); //get query request
+const puppeteer = require("puppeteer");
 
-const URL = "https://www.privateraise.com/pipe/search/equity.php?placementid=44042&tab=all"
+
+const PR = "https://www.privateraise.com";
+const URL = "https://www.privateraise.com/pipe/search/equity.php?placementid=43527&RA=1&SID=bn8lih5uei5km309o4qaptt2u2";
+const username = 'bcoyne@arenaco.com';
+const password = 'Arena2022';
+
+/**
+ * 
+ * @param {*} d dictionary to turn to string
+ * @returns string rep of dict in the form {key}: \n {value}
+ */
+function dictToString(d) {
+    res = '';
+    for (const key in d) {
+        res += key + ': \n \t * ' + d[key] + '\n';
+    }
+    return res; 
+}
+
+async function tryLogin(page) {
+    await page.type("input#username", username);
+    await page.type("input#password", password);
+    await page.click("input#login-button");
+}
 
 async function main() {
-    /*
+    
     try {
-        //login request
-        const result = await request.post("https://www.privateraise.com", {
-            headers: {
-                Cookie: "PHPSESSID=bn8lih5uei5km309o4qaptt2u2; _gid=GA1.2.1748114180.1686833469; _gat_UA-28611039-1=1; _ga_J4DE7RRCMZ=GS1.1.1686838677.2.1.1686839140.0.0.0; _ga=GA1.1.1025518932.1686833468"
-            },
-            simple: true,
-            followAllRedirects: true,
-            jar: true
-        })
-        //write to data.html file
-        fs.writeFileSync("./login.html", result);
-    } catch (error) {
-        console.error(error);
-    }
-    */
+        // login using puppeteer
+        const browser = await puppeteer.launch({ headless: false });
+        const page = await browser.newPage();
+        await page.goto(PR);
 
+        await tryLogin(page);
+        
+        if (page.url() === "https://www.privateraise.com/index.php") {
+            await tryLogin(page);
+        }
+        
+        //await page.waitForNavigation();
 
-    // load web addr
-    try {
-        const html = await request.get(URL, {
-            headers: {
-                Cookie: "PHPSESSID=bn8lih5uei5km309o4qaptt2u2; _gid=GA1.2.1748114180.1686833469; _gat_UA-28611039-1=1; _ga_J4DE7RRCMZ=GS1.1.1686838677.2.1.1686839140.0.0.0; _ga=GA1.1.1025518932.1686833468"
-            },
-            simple: true,
-            followAllRedirects: true,
-            jar: true
-        })
-        //write to file
-        //fs.writeFileSync("./info.html", html);
+        // load web addr
+        await page.goto(URL); 
+        const html = await page.content();
         //load data from webpage
         const $ = cheerio.load(html);
+        // initiate object to hold data
+        const result = {};
 
-        //const items = {'Committment Period': null, 'Draw Down': null, 'Commitment Fee': null, 'Purchase Price': []}
-        const items = {};
-        let tbl = '';
         $("#content-div > div.widget-body > div.profile-view > div.tab-body > table").each((index, element) => {
-            // switch ($(element).text()) {
-            //     case "Committment Period:":
-            //         items['Committment Period'] = index+1;
-            //     case "Draw Down:":
-            //         items['Draw Down'] = index + 1;
-            //     case "Commitment Fee:":
-            //         items['Commitment Fee'] = index+1;
-            //     case "Fixed Purchase Price:":
-            //         items['Fixed Purchase Price'] = index+1;
-            //     case "Reset Purchase/Conversion Price:":
-            //         items['Reset Purchase Price'] = index+1;
-            //     case "Variable Purchase/Conversion Price:":
-            //         items['Variable Purchase Price'] = index + 1;
-            // } 
-            //console.log('index:', index, 'text: ', $(element).text(), 'tbody: ', $(element).find('tbody'));
-            
-            tbl = tbl + '\n index:'+ index+ '\n text: '+ $(element).text()+ ' \n tbody: ' + $(element).find('tbody');
-            
+            // get 'Investor' data
+            const tbl = $(element).find('tbody').find('tr');
+            for (const elm of tbl.find('th')) {
+                $(elm).each((ind, e) => {
+                    if ($(e).text().includes('Investment') && $(e).text().includes('Manager')) {
+                        // console.log(ind,$(e).text());
+                        tbl.next().find('td').each((i,e) => {
+                            if (i=== ind) result["Investor"] = $(e).text();
+                        });
+                    }
+                })
+            }
+            // get all other data
+            const obj = $(element).find('tbody').find('tr').find('td');
+            for (const elm of obj) {
+                if ($(elm).text().includes('Commit') && $(elm).text().includes('Period')) {
+                    const fullText = $(elm).next().text();
+                    result['Commitment Period'] = fullText.split(';')[0];
+                } else if ($(elm).text().includes('Commit') && $(elm).text().includes('Fee')) {
+                    const fullText = $(elm).next().text();
+                    result['Commitment Fee'] = fullText.split(';')[0];
+                } else if ($(elm).text() === 'Draw Down:') {
+                    const fullText = $(elm).next().text();
+                    result['Draw Down'] = fullText.split('[ Limitations ]')[1].replaceAll('\n', '');
+                } else if ($(elm).text().includes('Purchase') && $(elm).text().includes('Price:')) {
+                    const fullText = $(elm).next().text();
+                    if (fullText !== 'None') {
+                        result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
+                        //console.log($(elm).text(),result['Purchase Price']);
+                    }
+                } else if ($(elm).text().includes('Investor') && $(elm).text().includes('Legal') && $(elm).text().includes('Counsel')) {
+                    const fullText = $(elm).next().text();
+                    result['Investor Legal Counsel'] = fullText;
+                    //console.log($(elm).text(),result['Investor Legal Counsel']);
+                } else if ($(elm).text().includes('Investor') && $(elm).text().includes('Legal') && $(elm).text().includes('Counsel')) {
+                    const fullText = $(elm).next().text();
+                    result['Investor Legal Counsel'] = fullText;
+                    //console.log($(elm).text(),result['Investor Legal Counsel']);
+                } 
+            }
         }); 
-        fs.writeFileSync('./info.html', tbl);
+        console.log(result);
+        fs.writeFileSync('./info.html',dictToString(result));
     } catch (error) {
         console.error(error)
     }
