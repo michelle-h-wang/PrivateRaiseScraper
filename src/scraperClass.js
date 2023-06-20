@@ -179,12 +179,4 @@ class ConvertibleNote extends CompanyInformation {
     }
 }
 
-// async function main() {
-//     // const URL = prompt("enter URL: ");
-//     // const ci = await CompanyInformation.getURL(URL);
-//     // return ci.getResult();
-//     return CompanyInformation;
-// }
-
-// main();
 exports.companyInformation = (url) => CompanyInformation.getURL(url);
