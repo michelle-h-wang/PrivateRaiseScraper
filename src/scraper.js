@@ -2,34 +2,31 @@ const request = require("request-promise").defaults({jar: true }); //load web si
 const fs = require("fs");
 const cheerio = require("cheerio"); //get query request
 const puppeteer = require("puppeteer");
+const { type } = require("os");
+const prompt=require("prompt-sync")({sigint:true});
 
-
+const URL = prompt("enter URL: ");
 const PR = "https://www.privateraise.com";
-const URL = "https://www.privateraise.com/pipe/search/equity.php?placementid=43527&RA=1&SID=bn8lih5uei5km309o4qaptt2u2";
+//const URL = "https://www.privateraise.com/pipe/search/equity.php?placementid=43527&RA=1&SID=bn8lih5uei5km309o4qaptt2u2";
 const username = 'bcoyne@arenaco.com';
 const password = 'Arena2022';
 
-/**
- * 
- * @param {*} d dictionary to turn to string
- * @returns string rep of dict in the form {key}: \n {value}
- */
-function dictToString(d) {
-    res = '';
-    for (const key in d) {
-        res += key + ': \n \t * ' + d[key] + '\n';
-    }
-    return res; 
-}
 
+/**
+ * inputs login credentials to the given page
+ * @param {*} page browser page to run on
+ */
 async function tryLogin(page) {
     await page.type("input#username", username);
     await page.type("input#password", password);
     await page.click("input#login-button");
 }
 
-async function main() {
-    
+/**
+ * 
+ * @returns scraped information given URL
+ */
+async function companyInformation() {
     try {
         // login using puppeteer
         const browser = await puppeteer.launch({ headless: false });
@@ -95,12 +92,12 @@ async function main() {
             }
         }); 
         console.log(result);
-        fs.writeFileSync('./info.html',dictToString(result));
+        return result;
     } catch (error) {
         console.error(error)
     }
-
-    
 }
+companyInformation();
 
-main();
+
+

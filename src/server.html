@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8"/>
+        <h1>PrivateRaise Deal Scraper</h1>
+
+        <style>
+            #canvas {
+                border: 1px solid black;
+                margin: 20px;
+                width: 512px;
+                height: 512px;
+            }
+            #outputArea {
+                border: 1px solid lightgray;
+                margin: 20px;
+                height: 256px;
+                width: 512px;
+                overflow: scroll;
+                padding: 5px;
+                white-space: pre-wrap;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- <script id="url-var" src="./index.js"> 
+        url = prompt("enter URL: ");
+        inp(url);
+        </script>
+        // <script type="text/javascript" src = "index.js"></script> -->
+        <form action="subscribe.php" method="POST">
+            <div>
+                <label for="url">URL</label>
+                <input type="url" name="url" id="url" required />
+            </div>
+        
+            <button type="submit">Submit</button>
+        </form>
+    </body>
+</html>
