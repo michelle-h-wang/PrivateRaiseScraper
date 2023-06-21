@@ -29,7 +29,7 @@ async function main(url) {
 
     const strInfo = dictToString(info);
     fs.writeFileSync("src/info.html", strInfo);
-    return info;
+    return strInfo;
 }
 
-exports.main = async (url) => {await main(url)}
+exports.main = async (url) => {return await main(url)}

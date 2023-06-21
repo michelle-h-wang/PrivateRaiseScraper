@@ -9,21 +9,27 @@
     </head>
     <body>
         <script>
-            async function submitURL() {
+            function submitURL() {
                 var url = document.getElementById("input").value;
-                document.getElementById("resposneBox").setAttribute('input-url', url);
+                document.getElementById("msg").innerHTML = "submitted url";
+                
+                document.getElementById("response").setAttribute('input-url', url);
+                document.getElementById("response").innerHTML = document.getElementById("response").getAttribute("input-url");
             }
         </script>
     
-        <body>
+        <div>
+            <!-- <script> var url = prompt("enter url: ") </script> -->
             <input id="input" placeholder="url">
-            <button type="button" onclick="submitURL()">submit</button>
-        </body>
+            <button id="submit" type="button" onclick="submitURL()">submit</button>
+            <div id="msg"> Not yet submitted </div>
+        </div>
 
-        <body id="response">
-            <script type="text/javascript" id="responseBox" src = "index.js"></script>
-            <p id="result"></p>
-        </body>
+        <div id="response">
+            <!-- <script type="text/javascript" id="responseBox" src = "index.js"></script> -->
+            No Result Yet
+
+        </div>
 
     </body>
 </html>
