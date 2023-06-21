@@ -18,14 +18,18 @@ function dictToString(d) {
     return res; 
 }
 
+/**
+ * 
+ * @param {*} url 
+ * @returns stringified dictionary of values
+ */
 async function main(url) {
     const ci = await companyInfo.companyInformation(url);
     const info = ci.getResult();
 
     const strInfo = dictToString(info);
-    console.log(strInfo);
     fs.writeFileSync("src/info.html", strInfo);
-    return strInfo;
+    return info;
 }
 
-exports.main = (url) => {main(url)}
+exports.main = async (url) => {await main(url)}

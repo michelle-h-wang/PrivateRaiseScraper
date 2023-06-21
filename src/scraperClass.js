@@ -9,18 +9,31 @@ const PR = "https://www.privateraise.com";
 const username = 'bcoyne@arenaco.com';
 const password = 'Arena2022';
 
+/**
+ * CompanyInformation takes url as argument in static factory method 'getURL' and returns mapping of information values in 'getResult'
+ */
 class CompanyInformation {
     result={};
     html;
     $;
     SecClass;
 
+    /**
+     * 
+     * @param {*} html request parse of url
+     * @param {*} $ cheerio object load of html (function)
+     */
     constructor(html, $) {
         this.html = html;
         this.$ = $;
         // console.log('1', typeof this.$);
     }
 
+    /**
+     * 
+     * @param {*} url string
+     * @returns new CompanyInformation object initialized with html parse and cheerio parse
+     */
     static async getURL(url) {
         async function tryLogin(page) {
             await page.type("input#username", username);
@@ -51,6 +64,9 @@ class CompanyInformation {
         }
     }
 
+    /**
+     * Fetches the 'Investor' information from the site, sets the value in the map
+     */
     parseInvestor() {
         this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").each((index, element) => {
             // get 'Investor' data
@@ -71,6 +87,10 @@ class CompanyInformation {
         });
     }
 
+    /**
+     * creates a call on subclass
+     * @returns the subclass the security falls under
+     */
     getSecurityClass() {
         const tbl = this.$("#profile-contact > table > tbody > tr > td > table > tbody > tr > td");
         for (const elm of tbl) {
@@ -87,6 +107,10 @@ class CompanyInformation {
         }
         return this.SecClass;
     }
+    /**
+     *
+     * @returns mapping of information
+     */
     getResult() {
         this.result = this.getSecurityClass().parseInfo();
         this.parseInvestor();
@@ -95,15 +119,22 @@ class CompanyInformation {
 
 }
 
+/**
+ * Subclass of CompanyInformation for Equity Lines, called by parent
+ */
 class EquityLine extends CompanyInformation {
     constructor(html, $) {
         super(html, $);
         // console.log('2', typeof this.$);
     }
+
     getClass() {
         return "Equity Line";
     }
-
+    /**
+     * 
+     * @returns mapping of info specific to this security class
+     */
     parseInfo() {
         function getItem(elm) {
             return elm.next().text();
@@ -112,18 +143,22 @@ class EquityLine extends CompanyInformation {
             for (const elm of obj) {
                 const txt = this.$(elm).text()
                 if (txt.includes('Commit') && txt.includes('Period')) {
-                    const fullText = getItem(this.$(elm));
-                    this.result['Commitment Period'] = fullText.split(';')[0];
+                    const fullText = getItem(this.$(elm)).toLowerCase();
+                    const t = ["months", "month", "days", "day","years", "year"];
+                    for (const val of t) {
+                        if (fullText.includes(val)) this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
+                        break;
+                    }
                 } else if (txt.includes('Commit') && txt.includes('Fee')) {
                     const fullText = getItem(this.$(elm));
-                    this.result['Commitment Fee'] = fullText.split(';')[0];
+                    
                 } else if (txt === 'Draw Down:') {
                     const fullText = getItem(this.$(elm));
                     this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replaceAll('\n', '');
                 } else if (txt.includes('Purchase') && txt.includes('Price:')) {
                     const fullText = getItem(this.$(elm));
-                    if (fullText !== 'None') {
-                        this.result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
+                    if (fullText.toLowerCase() !== 'none') {
+                        this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
                     }
                 } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
                     const fullText = getItem(this.$(elm));
@@ -135,7 +170,9 @@ class EquityLine extends CompanyInformation {
     
 }
 
-
+/**
+ * subclass of CompanyInformation for Convertible Notes, called by parent class.
+ */
 class ConvertibleNote extends CompanyInformation {
     constructor(html, $) {
         super(html, $);
@@ -144,6 +181,10 @@ class ConvertibleNote extends CompanyInformation {
     getClass() {
         return "Convertible Note";
     }
+    /**
+     * 
+     * @returns mapping of info specific to this security class
+     */
     parseInfo() {
         function getItem(elm) {
             return elm.next().text();

@@ -1,0 +1,8 @@
+Directory Structure:
+
+- scraper is built as parent + subclassing in scraperClass.js, parent is exported to index.js
+- index.js does top-level call on scraping class and renders in HTML file
+- server.js runs server on PORT 8080, and calls index.js and sends HTML render from info.html
+
+TO RUN:
+"npm start" will run server directly, navigate to http://localhost:8080/ on Chrome to access input/outputs.
