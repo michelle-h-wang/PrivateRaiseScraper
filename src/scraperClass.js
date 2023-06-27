@@ -130,43 +130,81 @@ class EquityLine extends CompanyInformation {
     getClass() {
         return "Equity Line";
     }
+
+    getStockPrice() {
+        function getItem(elm) {
+            return elm.next().text();
+        }
+        const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table.twocol > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(2) > td");
+        for (const elm of obj) {
+            if (this.$(elm).text().includes("Closing Stock Price")) {
+                const t = getItem(this.$(elm)).replaceAll("$", "");
+                return parseFloat(t);
+            }
+        }
+    }
     /**
      * 
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
+        let commitAmt;
         function getItem(elm) {
             return elm.next().text();
         }
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
-            for (const elm of obj) {
-                const txt = this.$(elm).text();
-                if (txt.includes('Commit') && txt.includes('Period')) {
-                    const fullText = getItem(this.$(elm)).toLowerCase();
-                    const t = ["months", "month", "days", "day","years", "year"];
-                    for (const val of t) {
-                        if (fullText.includes(val)) this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
-                        break;
-                    }
-                } else if (txt.includes('Commit') && txt.includes('Fee')) {
-                    const fullText = getItem(this.$(elm));
-                    
-                } else if (txt === 'Draw Down:') {
-                    const fullText = getItem(this.$(elm));
-                    this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replaceAll('\n', '');
-                } else if (txt.includes('Purchase') && txt.includes('Price:')) {
-                    const fullText = getItem(this.$(elm));
-                    if (fullText.toLowerCase() !== 'none') {
-                        this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
-                    }
-                } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
-                    const fullText = getItem(this.$(elm));
-                    this.result['Investor Legal Counsel'] = fullText;
+        for (const elm of obj) {
+            const txt = this.$(elm).text();
+            if (txt.includes('Commit') && txt.includes("Amount")) {
+                const text = getItem(this.$(elm)).replaceAll("$", "").replaceAll(",", "");
+                commitAmt = parseInt(text);
+                break;
+            } 
+        }   
+        for (const elm of obj) {
+            const txt = this.$(elm).text();
+            if (txt.includes('Commit') && txt.includes('Period')) {
+                const fullText = getItem(this.$(elm)).toLowerCase();
+                const t = ["months", "month", "days", "day","years", "year"];
+                for (const val of t) {
+                    if (fullText.includes(val)) this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
+                    break;
                 }
+            } else if (txt.includes('Commit') && txt.includes('Fee:')) {
+                let fullText = getItem(this.$(elm));
+                const stockPrice = this.getStockPrice();
+                console.log(stockPrice + "sp ", commitAmt+"ca");
+                let fee;
+                if (fullText.includes("shares")) {
+                    const string = fullText.split("shares")[0];
+                    let shares = string.split(" ");
+                    shares = shares[shares.length-2].replaceAll(",", "");
+                    fee = parseFloat(shares)*stockPrice;
+                    // console.log(fee + "shares");
+                } else {
+                    fullText = fullText.split("$")[1];
+                    fullText = fullText.replaceAll(",", "");
+                    fee = parseFloat(fullText);
+                    // console.log(fee +"$");
+                }
+                const percent = fee*100/commitAmt
+                // console.log("percet", percent);
+                this.result['Commitment Fee'] = '$ ' + fee.toFixed(2) + " (" + percent.toFixed(1) + "%)";
+            } else if (txt === 'Draw Down:') {
+                const fullText = getItem(this.$(elm));
+                this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replace('\n', '').replaceAll('\n', '\n \t');
+            } else if (txt.includes('Purchase') && txt.includes('Price:')) {
+                const fullText = getItem(this.$(elm));
+                if (fullText.toLowerCase() !== 'none') {
+                    this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
+                }
+            } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
+                const fullText = getItem(this.$(elm));
+                this.result['Investor Legal Counsel'] = fullText;
             }
-        return this.result;
+        }
+        return this.result;   
     }
-    
 }
 
 /**

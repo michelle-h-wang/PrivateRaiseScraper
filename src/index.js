@@ -13,7 +13,7 @@ const prompt=require("prompt-sync")({sigint:true});
 function dictToString(d) {
     res = '';
     for (const key in d) {
-        res += key + ': \n \t * ' + d[key] + '\n';
+        res += key.toUpperCase() + ': \n \t * ' + d[key] + '\n \n';
     }
     return res; 
 }
