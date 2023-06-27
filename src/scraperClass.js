@@ -86,7 +86,7 @@ class CompanyInformation {
             }
         });
     }
-    
+
     /**
      *
      * @returns mapping of information
