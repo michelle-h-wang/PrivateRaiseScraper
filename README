@@ -8,3 +8,7 @@ TO RUN:
 "npm start" will run server directly, input URL in terminal/console, navigate to http://localhost:8080/ on Chrome to access input/outputs.
 
 alternatively, output will also be available on the terminal and src/info.html
+
+if encounter "Error: listen EADDRINUSE: address already in use :::8080"
+--> sudo lsof -i :8080
+--> kill -9 <PID>

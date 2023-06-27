@@ -188,8 +188,9 @@ class EquityLine extends CompanyInformation {
                     // console.log(fee +"$");
                 }
                 const percent = fee*100/commitAmt
+                const formattedFee = fee.toLocaleString('en-US', {maximumFractionDigits:2});
                 // console.log("percet", percent);
-                this.result['Commitment Fee'] = '$ ' + fee.toFixed(2) + " (" + percent.toFixed(1) + "%)";
+                this.result['Commitment Fee'] = '$ ' + formattedFee + " (" + percent.toFixed(1) + "%)";
             } else if (txt === 'Draw Down:') {
                 const fullText = getItem(this.$(elm));
                 this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replace('\n', '').replaceAll('\n', '\n \t');
