@@ -86,17 +86,19 @@ class CompanyInformation {
             }
         });
     }
-
+    
     /**
-     * creates a call on subclass
-     * @returns the subclass the security falls under
+     *
+     * @returns mapping of information
      */
-    getSecurityClass() {
-        const tbl = this.$("#profile-contact > table > tbody > tr > td > table > tbody > tr > td");
+    getResult() {
+        const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
+        console.log(tbl.text());
         for (const elm of tbl) {
+            console.log(this.$(elm).text());
             if (this.$(elm).find("b").text().includes("Security Type")) {
                 const security = this.$(elm).next().find("b").text();
-                if (security.includes("Equity Line")) {
+                if (security.includes("Equity")) {
                     this.SecClass = new EquityLine(this.html, this.$);
                     break
                 } else if (security.includes("Convertible") && security.includes("Debt")) {
@@ -105,14 +107,11 @@ class CompanyInformation {
                 }
             }
         }
-        return this.SecClass;
-    }
-    /**
-     *
-     * @returns mapping of information
-     */
-    getResult() {
-        this.result = this.getSecurityClass().parseInfo();
+        if (this.SecClass === undefined) {
+            throw new Error("undefined security class");
+        }
+
+        this.result = this.SecClass.parseInfo();
         this.parseInvestor();
         return this.result;
     }
@@ -141,7 +140,7 @@ class EquityLine extends CompanyInformation {
         }
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
             for (const elm of obj) {
-                const txt = this.$(elm).text()
+                const txt = this.$(elm).text();
                 if (txt.includes('Commit') && txt.includes('Period')) {
                     const fullText = getItem(this.$(elm)).toLowerCase();
                     const t = ["months", "month", "days", "day","years", "year"];
