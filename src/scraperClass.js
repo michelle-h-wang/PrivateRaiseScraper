@@ -3,6 +3,7 @@ const fs = require("fs");
 const cheerio = require("cheerio"); //get query request
 const puppeteer = require("puppeteer");
 const { type } = require("os");
+const { get } = require("express/lib/response");
 const prompt=require("prompt-sync")({sigint:true});
 
 const PR = "https://www.privateraise.com";
@@ -94,6 +95,7 @@ class CompanyInformation {
     getResult() {
         const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
         console.log(tbl.text());
+        // FIRST casework based on deal type: ELOC, Convertible Debt
         for (const elm of tbl) {
             console.log(this.$(elm).text());
             if (this.$(elm).find("b").text().includes("Security Type")) {
@@ -107,10 +109,12 @@ class CompanyInformation {
                 }
             }
         }
+        // THROW ERR if class has not be determined
         if (this.SecClass === undefined) {
             throw new Error("undefined security class");
         }
 
+        // CALL function based on class type
         this.result = this.SecClass.parseInfo();
         this.parseInvestor();
         return this.result;
@@ -124,13 +128,16 @@ class CompanyInformation {
 class EquityLine extends CompanyInformation {
     constructor(html, $) {
         super(html, $);
-        // console.log('2', typeof this.$);
     }
 
     getClass() {
         return "Equity Line";
     }
 
+    /**
+     * 
+     * @returns last closing stock price
+     */
     getStockPrice() {
         function getItem(elm) {
             return elm.next().text();
@@ -143,18 +150,22 @@ class EquityLine extends CompanyInformation {
             }
         }
     }
+
     /**
      * 
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
         let commitAmt;
+        //Helper Function to get NEXT ITEM 
         function getItem(elm) {
             return elm.next().text();
         }
+        //divide HTML page into 'td' elements
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
         for (const elm of obj) {
             const txt = this.$(elm).text();
+            //get COMMITMENT AMOUNT
             if (txt.includes('Commit') && txt.includes("Amount")) {
                 const text = getItem(this.$(elm)).replaceAll("$", "").replaceAll(",", "");
                 commitAmt = parseInt(text);
@@ -163,50 +174,57 @@ class EquityLine extends CompanyInformation {
         }   
         for (const elm of obj) {
             const txt = this.$(elm).text();
+            //GET COMMITMENT PERIOD
             if (txt.includes('Commit') && txt.includes('Period')) {
                 const fullText = getItem(this.$(elm)).toLowerCase();
                 const t = ["months", "month", "days", "day","years", "year"];
                 for (const val of t) {
+                    // loop through to check each possible period duration, parses if match
                     if (fullText.includes(val)) this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
                     break;
                 }
             } else if (txt.includes('Commit') && txt.includes('Fee:')) {
                 let fullText = getItem(this.$(elm));
                 const stockPrice = this.getStockPrice();
-                console.log(stockPrice + "sp ", commitAmt+"ca");
+                // console.log(stockPrice + "sp ", commitAmt+"ca");
                 let fee; 
                 let percent; 
-                let final;
+                // IF the explicit $ amount is listed already in the text:
                 if (fullText.includes("$")) {
                     let splitAmt = fullText.split("$")[1];
+                    // get magnitude listed ex. 'millions'
                     const splitMagn  = splitAmt.split(' ')[1];
-                    console.log("mag", splitMagn);
-                    splitAmt = splitAmt.replaceAll(",", "");
+                    // console.log("mag", splitMagn);
+                    splitAmt = splitAmt.replaceAll(",", ""); //remove ',' to parse number
                     fee = parseFloat(splitAmt);
                     // console.log(fee +"$");
 
                     percent = parseFloat(fee*(10**6))*100/commitAmt;
-                    final = '$' + fee.toLocaleString('en-US', {maximumFractionDigits:2}) + splitMagn + " (" + percent.toFixed(1) + "%)";
+                    percent = percent.toFixed(1);
+                    fee = ''+ fee.toLocaleString('en-US', {maximumFractionDigits:2}) + ' ' + splitMagn;
                 }
+                //Otherwise fee is listed as SHARES, do calculations to turn into $ amt
                 else if (fullText.includes("shares")) {
-                    
+                    // parse amt of shares
                     const string = fullText.split("shares")[0];
                     let shares = string.split(" ");
                     shares = shares[shares.length-2].replaceAll(",", "");
                     fee = parseFloat(shares)*stockPrice;
+
                     percent = fee*100/commitAmt;
-                    final = '$' + fee.toLocaleString('en-US', {maximumFractionDigits:2}) + " (" + percent.toFixed(1) + "%)";
-                    // console.log(fee + "shares");
+                    percent = percent.toFixed(1);
+                    fee = ''+ fee.toLocaleString('en-US', {maximumFractionDigits:2});
                 } else {
                     fee = fullText;
+                    percent = 'explicit data not found';
                 }
-                // console.log("percet", percent);
-                this.result['Commitment Fee'] = final;
+                this.result['Commitment Fee'] = '$' + fee + " (" + percent + "%)";
             } else if (txt === 'Draw Down:') {
                 const fullText = getItem(this.$(elm));
                 this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replace('\n', '').replaceAll('\n', '\n \t');
             } else if (txt.includes('Purchase') && txt.includes('Price:')) {
                 const fullText = getItem(this.$(elm));
+                // Loop through each section of purchase price, only display it if it is NOT NONE
                 if (fullText.toLowerCase() !== 'none') {
                     this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
                 }
@@ -238,33 +256,41 @@ class ConvertibleNote extends CompanyInformation {
         function getItem(elm) {
             return elm.next().text();
         }
+        let face;
+        let pps;
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
-            for (const elm of obj) {
-                const txt = this.$(elm).text()
-                if (txt.includes('Term:')) {
-                    this.result['Term'] = getItem(this.$(elm));
+        for (const elm of obj) {
+            const txt = this.$(elm).text()
+            if (txt.includes('Term:')) {
+                this.result['Term'] = getItem(this.$(elm));
 
-                } else if (txt.includes('Price') && txt.includes('Per Security')) {
-                    this.result['Price Per Security'] = getItem(this.$(elm));
-
-                } else if (txt === 'Coupon:') {
-                    this.result['Coupon'] = getItem(this.$(elm));
-
-                } else if (txt === "Maturity:") {
-                    this.result['Maturity'] = getItem(this.$(elm));
-
-                } else if (txt.includes('Conversion Price:')) {
-                    const fullText = getItem(this.$(elm));
-                    if (fullText !== 'None') {
-                        this.result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
-                    }
-                    
-                } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
-                    const fullText = getItem(this.$(elm));
-                    this.result['Investor Legal Counsel'] = fullText;
-                    //console.log($(elm).text(),result['Investor Legal Counsel']);
+            } else if (txt.includes('Issuance Amount:')) {
+                this.result['Issuance Amount'] = getItem(this.$(elm));
+            } else if (txt === 'Coupon:') {
+                this.result['Coupon'] = getItem(this.$(elm));
+            } else if (txt.includes('Hard Floor Price:'))  {
+                this.result['Hard Floor Price'] = getItem(this.$(elm));
+            } else if (txt.includes("Face Amount Per Security") || txt.includes("Price Per Security")) {
+                let amt = getItem(this.$(elm));
+                amt = amt.replaceAll("$", '');
+                amt = amt.replaceAll(",", '');
+                if (txt.includes('Face')) face = parseFloat(amt);
+                else pps = parseFloat(amt);
+            } 
+            else if (txt.includes('Conversion Price:')) {
+                const fullText = getItem(this.$(elm));
+                if (fullText !== 'None') {
+                    this.result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
                 }
+                
+            } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
+                const fullText = getItem(this.$(elm));
+                this.result['Investor Legal Counsel'] = fullText;
+                //console.log($(elm).text(),result['Investor Legal Counsel']);
             }
+        }
+        const oid = (pps/amt) *100;
+        this.result['OID'] = ''+ oid.toFixed(2) + ' %';
         return this.result;
     }
 }
