@@ -258,6 +258,7 @@ class ConvertibleNote extends CompanyInformation {
         }
         let face;
         let pps;
+        this.result['OID'] = '';
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
         for (const elm of obj) {
             const txt = this.$(elm).text()
@@ -289,8 +290,8 @@ class ConvertibleNote extends CompanyInformation {
                 //console.log($(elm).text(),result['Investor Legal Counsel']);
             }
         }
-        const oid = (pps/amt) *100;
-        this.result['OID'] = ''+ oid.toFixed(2) + ' %';
+        const oid = (pps/face) *100;
+        this.result['OID'] += oid.toFixed(2) + ' %';
         return this.result;
     }
 }
