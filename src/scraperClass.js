@@ -258,15 +258,15 @@ class ConvertibleNote extends CompanyInformation {
         }
         let face;
         let pps;
-        this.result['OID'] = '';
+        
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
         for (const elm of obj) {
             const txt = this.$(elm).text()
             if (txt.includes('Term:')) {
                 this.result['Term'] = getItem(this.$(elm));
-
             } else if (txt.includes('Issuance Amount:')) {
                 this.result['Issuance Amount'] = getItem(this.$(elm));
+                this.result['OID'] = '';
             } else if (txt === 'Coupon:') {
                 this.result['Coupon'] = getItem(this.$(elm));
             } else if (txt.includes('Hard Floor Price:'))  {
