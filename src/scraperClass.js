@@ -10,6 +10,10 @@ const PR = "https://www.privateraise.com";
 const username = 'bcoyne@arenaco.com';
 const password = 'Arena2022';
 
+
+function getItem(elm) {
+    return elm.next().text();
+}
 /**
  * CompanyInformation takes url as argument in static factory method 'getURL' and returns mapping of information values in 'getResult'
  */
@@ -43,7 +47,7 @@ class CompanyInformation {
         }
         try {
             // login using puppeteer
-            const browser = await puppeteer.launch({ headless: false });
+            const browser = await puppeteer.launch({ headless: true });
             const page = await browser.newPage();
             await page.goto(PR);
     
@@ -94,10 +98,10 @@ class CompanyInformation {
      */
     getResult() {
         const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
-        console.log(tbl.text());
+        // console.log(tbl.text());
         // FIRST casework based on deal type: ELOC, Convertible Debt
         for (const elm of tbl) {
-            console.log(this.$(elm).text());
+            // console.log(this.$(elm).text());
             if (this.$(elm).find("b").text().includes("Security Type")) {
                 const security = this.$(elm).next().find("b").text();
                 if (security.includes("Equity")) {
@@ -106,7 +110,13 @@ class CompanyInformation {
                 } else if (security.includes("Convertible") && security.includes("Debt")) {
                     this.SecClass = new ConvertibleNote(this.html, this.$);
                     break
-                }
+                } else if (security.includes("Common") && security.includes("Stock")) {
+                    this.SecClass = new CommonStock(this.html, this.$);
+                    break
+                } else if (security.includes("Preferred") && security.includes("Convertible")) {
+                    this.SecClass = new ConvertibleNote(this.html, this.$);
+                    break
+                } else console.log(security);
             }
         }
         // THROW ERR if class has not be determined
@@ -118,6 +128,45 @@ class CompanyInformation {
         this.result = this.SecClass.parseInfo();
         this.parseInvestor();
         return this.result;
+    }
+
+    getSecClass() {
+        const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
+
+        // FIRST casework based on deal type: ELOC, Convertible Debt
+        for (const elm of tbl) {
+            // console.log(this.$(elm).text());
+            if (this.$(elm).find("b").text().includes("Security Type")) {
+                const security = this.$(elm).next().find("b").text();
+                if (security.includes("Equity")) {
+                    return new EquityLine(this.html, this.$);
+                } else if (security.includes("Convertible") && security.includes("Debt")) {
+                    return new ConvertibleNote(this.html, this.$);
+                } else if (security.includes("Common") && security.includes("Stock")) {
+                    return new CommonStock(this.html, this.$);
+                } else if (security.includes("Preferred") && security.includes("Convertible")) {
+                    return new ConvertibleNote(this.html, this.$);
+                } else {
+                    throw new Error("undefined security class " + security);
+                }
+            }
+        }
+    }
+    getName() {
+        return this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > h3:nth-child(2) > a").text();
+    }
+
+    getPriceType() {
+        const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
+        for (const elm of obj) {
+            const txt = this.$(elm).text()
+            if (txt.includes("Price:") && (txt.includes("Conversion") || txt.includes("Purchase"))){
+                const fullText = getItem(this.$(elm));
+                if (!fullText.includes('None')) {
+                    return txt;
+                }
+            }
+        }
     }
 
 }
@@ -225,7 +274,7 @@ class EquityLine extends CompanyInformation {
             } else if (txt.includes('Purchase') && txt.includes('Price:')) {
                 const fullText = getItem(this.$(elm));
                 // Loop through each section of purchase price, only display it if it is NOT NONE
-                if (fullText.toLowerCase() !== 'none') {
+                if (!fullText.includes('None')) {
                     this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
                 }
             } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
@@ -280,8 +329,8 @@ class ConvertibleNote extends CompanyInformation {
             } 
             else if (txt.includes('Conversion Price:')) {
                 const fullText = getItem(this.$(elm));
-                if (fullText !== 'None') {
-                    this.result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
+                if (!fullText.includes('None')) {
+                    this.result['Conversion Price'] = fullText.split('**')[0].replaceAll('\n', '');
                 }
                 
             } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
@@ -293,6 +342,64 @@ class ConvertibleNote extends CompanyInformation {
         const oid = (pps/face) *100;
         this.result['OID'] += oid.toFixed(2) + ' %';
         return this.result;
+    }
+}
+
+class CommonStock extends CompanyInformation {
+    constructor(html, $) {
+        super(html, $);
+    }
+    getClass() {
+        return "Common Stock";
+    }
+    /**
+     * 
+     * @returns mapping of info specific to this security class
+     */
+    parseInfo() {
+        const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
+        for (const elm of obj) {
+            const txt = this.$(elm).text();
+            //GET COMMITMENT PERIOD
+            
+            if (txt.includes('Purchase') && txt.includes('Price:')) {
+                const fullText = getItem(this.$(elm));
+                // Loop through each section of purchase price, only display it if it is NOT NONE
+                if (!fullText.includes('None')) {
+                    this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
+                }
+            } 
+        }
+        return this.result;   
+    }
+}
+
+class PreferredConvertible extends CompanyInformation {
+    constructor(html, $) {
+        super(html, $);
+    }
+    getClass() {
+        return "Common Stock";
+    }
+    /**
+     * 
+     * @returns mapping of info specific to this security class
+     */
+    parseInfo() {
+        const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
+        for (const elm of obj) {
+            const txt = this.$(elm).text();
+            //GET COMMITMENT PERIOD
+            
+            if (txt.includes('Purchase') && txt.includes('Price:')) {
+                const fullText = getItem(this.$(elm));
+                // Loop through each section of purchase price, only display it if it is NOT NONE
+                if (!fullText.includes('None')) {
+                    this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
+                }
+            } 
+        }
+        return this.result;   
     }
 }
 
