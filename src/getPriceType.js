@@ -33,5 +33,5 @@ async function main(urlList) {
     return typeList;
 }
 
-urlList = ['https://www.privateraise.com/pipe/search/common.php?placementid=34839'];
+urlList = ['https://www.privateraise.com/pipe/search/equity.php?placementid=42411' ,'https://www.privateraise.com/pipe/search/equity.php?placementid=39586' ,'https://www.privateraise.com/pipe/search/c_debt.php?placementid=26113' ,'https://www.privateraise.com/pipe/search/equity.php?placementid=17385' ,'https://www.privateraise.com/pipe/search/c_debt.php?placementid=16120' ,];
 main(urlList);

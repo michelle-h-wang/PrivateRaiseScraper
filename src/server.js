@@ -22,12 +22,11 @@ app.get("/", asyncHandler(async (req, res) => {
 
 app.listen(PORT, asyncHandler(async (req, res) => {
     console.log('server is now listening at ', PORT);
-    while(true) {
+    
         const url = prompt("enter url: ");
         
         // console.log(url, Main.main(url));
         result = await Main.main(url);
-    }
 
 }));
 

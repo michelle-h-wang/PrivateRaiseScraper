@@ -45,12 +45,14 @@ class CompanyInformation {
             await page.type("input#password", password);
             await page.click("input#login-button");
         }
+
+
         try {
             // login using puppeteer
-            const browser = await puppeteer.launch({ headless: true });
+            const browser = await puppeteer.launch({ headless: false });
             const page = await browser.newPage();
             await page.goto(PR);
-    
+
             await tryLogin(page);
             
             if (page.url() === "https://www.privateraise.com/index.php") {
@@ -100,25 +102,27 @@ class CompanyInformation {
         const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
         // console.log(tbl.text());
         // FIRST casework based on deal type: ELOC, Convertible Debt
-        for (const elm of tbl) {
-            // console.log(this.$(elm).text());
-            if (this.$(elm).find("b").text().includes("Security Type")) {
-                const security = this.$(elm).next().find("b").text();
-                if (security.includes("Equity")) {
-                    this.SecClass = new EquityLine(this.html, this.$);
-                    break
-                } else if (security.includes("Convertible") && security.includes("Debt")) {
-                    this.SecClass = new ConvertibleNote(this.html, this.$);
-                    break
-                } else if (security.includes("Common") && security.includes("Stock")) {
-                    this.SecClass = new CommonStock(this.html, this.$);
-                    break
-                } else if (security.includes("Preferred") && security.includes("Convertible")) {
-                    this.SecClass = new ConvertibleNote(this.html, this.$);
-                    break
-                } else console.log(security);
-            }
-        }
+        // for (const elm of tbl) {
+        //     // console.log(this.$(elm).text());
+        //     if (this.$(elm).find("b").text().includes("Security Type")) {
+        //         const security = this.$(elm).next().find("b").text();
+        //         if (security.includes("Equity")) {
+        //             this.SecClass = new EquityLine(this.html, this.$);
+        //             break
+        //         } else if (security.includes("Convertible") && security.includes("Debt")) {
+        //             this.SecClass = new ConvertibleNote(this.html, this.$);
+        //             break
+        //         } else if (security.includes("Common") && security.includes("Stock")) {
+        //             this.SecClass = new CommonStock(this.html, this.$);
+        //             break
+        //         } else if (security.includes("Preferred") && security.includes("Convertible")) {
+        //             this.SecClass = new ConvertibleNote(this.html, this.$);
+        //             break
+        //         } else console.log(security);
+        //     }
+        // }
+
+        this.SecClass = this.getSecClass();
         // THROW ERR if class has not be determined
         if (this.SecClass === undefined) {
             throw new Error("undefined security class");
@@ -132,7 +136,6 @@ class CompanyInformation {
 
     getSecClass() {
         const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
-
         // FIRST casework based on deal type: ELOC, Convertible Debt
         for (const elm of tbl) {
             // console.log(this.$(elm).text());
@@ -147,7 +150,7 @@ class CompanyInformation {
                 } else if (security.includes("Preferred") && security.includes("Convertible")) {
                     return new ConvertibleNote(this.html, this.$);
                 } else {
-                    throw new Error("undefined security class " + security);
+                    return undefined;
                 }
             }
         }
@@ -205,6 +208,12 @@ class EquityLine extends CompanyInformation {
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
+        this.result['Investor'] = '';
+        this.result['Commitment Fee'] = '';
+        this.result['Commitment Period'] = '';
+        this.result['Draw Down'] = '';
+        this.result['Purchase Price'] = '';
+        this.result['Investor Legal Counsel']='';
         let commitAmt;
         //Helper Function to get NEXT ITEM 
         function getItem(elm) {
@@ -227,9 +236,10 @@ class EquityLine extends CompanyInformation {
             if (txt.includes('Commit') && txt.includes('Period')) {
                 const fullText = getItem(this.$(elm)).toLowerCase();
                 const t = ["months", "month", "days", "day","years", "year"];
+                this.result['Commitment Period'] = fullText;
                 for (const val of t) {
                     // loop through to check each possible period duration, parses if match
-                    if (fullText.includes(val)) this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
+                    if (fullText.includes(val)) {this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;}
                     break;
                 }
             } else if (txt.includes('Commit') && txt.includes('Fee:')) {
@@ -249,8 +259,8 @@ class EquityLine extends CompanyInformation {
                     // console.log(fee +"$");
 
                     percent = parseFloat(fee*(10**6))*100/commitAmt;
-                    percent = percent.toFixed(1);
-                    fee = ''+ fee.toLocaleString('en-US', {maximumFractionDigits:2}) + ' ' + splitMagn;
+                    percent = percent.toFixed(1) + '%';
+                    fee = '$'+ fee.toLocaleString('en-US', {maximumFractionDigits:2}) + ' ' + splitMagn;
                 }
                 //Otherwise fee is listed as SHARES, do calculations to turn into $ amt
                 else if (fullText.includes("shares")) {
@@ -261,21 +271,26 @@ class EquityLine extends CompanyInformation {
                     fee = parseFloat(shares)*stockPrice;
 
                     percent = fee*100/commitAmt;
-                    percent = percent.toFixed(1);
-                    fee = ''+ fee.toLocaleString('en-US', {maximumFractionDigits:2});
+                    percent = percent.toFixed(1) + '%';
+                    fee = '$'+ fee.toLocaleString('en-US', {maximumFractionDigits:2});
                 } else {
                     fee = fullText;
                     percent = 'explicit data not found';
                 }
-                this.result['Commitment Fee'] = '$' + fee + " (" + percent + "%)";
+                this.result['Commitment Fee'] = fee + " (" + percent + ")";
             } else if (txt === 'Draw Down:') {
                 const fullText = getItem(this.$(elm));
-                this.result['Draw Down'] = fullText.split('[ Limitations ]')[1].replace('\n', '').replaceAll('\n', '\n \t');
+                try {
+                    this.result['Draw Down'] =fullText.split('[ Limitations ]')[1].replace('\n', '').replaceAll('\n', '\n \t');
+                } catch (e) {
+                    this.result['Draw Down'] = fullText;
+                }
+                
             } else if (txt.includes('Purchase') && txt.includes('Price:')) {
                 const fullText = getItem(this.$(elm));
                 // Loop through each section of purchase price, only display it if it is NOT NONE
                 if (!fullText.includes('None')) {
-                    this.result[txt] = fullText.split('**')[0].replaceAll('\n', '');
+                    this.result['Purchase Price'] = fullText.split('**')[0].replaceAll('\n', '');
                 }
             } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
                 const fullText = getItem(this.$(elm));
@@ -302,9 +317,15 @@ class ConvertibleNote extends CompanyInformation {
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
-        function getItem(elm) {
-            return elm.next().text();
-        }
+        this.result['Investor'] = '';
+        this.result['Issuance Amount'] = '';
+        this.result['OID'] = '';
+        this.result['Term'] = '';
+        this.result['Coupon'] = '';
+        this.result['Conversion Price'] = '';
+        this.result['Hard Floor Price'] = '';
+        this.result['Investor Legal Counsel'] ='';
+
         let face;
         let pps;
         
@@ -315,7 +336,6 @@ class ConvertibleNote extends CompanyInformation {
                 this.result['Term'] = getItem(this.$(elm));
             } else if (txt.includes('Issuance Amount:')) {
                 this.result['Issuance Amount'] = getItem(this.$(elm));
-                this.result['OID'] = '';
             } else if (txt === 'Coupon:') {
                 this.result['Coupon'] = getItem(this.$(elm));
             } else if (txt.includes('Hard Floor Price:'))  {
@@ -331,8 +351,7 @@ class ConvertibleNote extends CompanyInformation {
                 const fullText = getItem(this.$(elm));
                 if (!fullText.includes('None')) {
                     this.result['Conversion Price'] = fullText.split('**')[0].replaceAll('\n', '');
-                }
-                
+                } 
             } else if (txt.includes('Investor') && txt.includes('Legal') && txt.includes('Counsel')) {
                 const fullText = getItem(this.$(elm));
                 this.result['Investor Legal Counsel'] = fullText;
@@ -357,6 +376,7 @@ class CommonStock extends CompanyInformation {
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
+        this.result['Investor'] = '';
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
         for (const elm of obj) {
             const txt = this.$(elm).text();
@@ -386,6 +406,7 @@ class PreferredConvertible extends CompanyInformation {
      * @returns mapping of info specific to this security class
      */
     parseInfo() {
+        this.result['Investor'] = '';
         const obj = this.$("#content-div > div.widget-body > div.profile-view > div.tab-body > table").find('tbody').find('tr').find('td');
         for (const elm of obj) {
             const txt = this.$(elm).text();
