@@ -100,27 +100,6 @@ class CompanyInformation {
      */
     getResult() {
         const tbl = this.$("#profile-contact > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td");
-        // console.log(tbl.text());
-        // FIRST casework based on deal type: ELOC, Convertible Debt
-        // for (const elm of tbl) {
-        //     // console.log(this.$(elm).text());
-        //     if (this.$(elm).find("b").text().includes("Security Type")) {
-        //         const security = this.$(elm).next().find("b").text();
-        //         if (security.includes("Equity")) {
-        //             this.SecClass = new EquityLine(this.html, this.$);
-        //             break
-        //         } else if (security.includes("Convertible") && security.includes("Debt")) {
-        //             this.SecClass = new ConvertibleNote(this.html, this.$);
-        //             break
-        //         } else if (security.includes("Common") && security.includes("Stock")) {
-        //             this.SecClass = new CommonStock(this.html, this.$);
-        //             break
-        //         } else if (security.includes("Preferred") && security.includes("Convertible")) {
-        //             this.SecClass = new ConvertibleNote(this.html, this.$);
-        //             break
-        //         } else console.log(security);
-        //     }
-        // }
 
         this.SecClass = this.getSecClass();
         // THROW ERR if class has not be determined
@@ -233,17 +212,19 @@ class EquityLine extends CompanyInformation {
         for (const elm of obj) {
             const txt = this.$(elm).text();
             //GET COMMITMENT PERIOD
-            if (txt.includes('Commit') && txt.includes('Period')) {
+            if (txt.includes('Commit') && txt.includes('Period:')) {
                 const fullText = getItem(this.$(elm)).toLowerCase();
                 const t = ["months", "month", "days", "day","years", "year"];
                 this.result['Commitment Period'] = fullText;
                 for (const val of t) {
                     // loop through to check each possible period duration, parses if match
-                    if (fullText.includes(val)) {this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;}
-                    break;
+                    if (fullText.includes(val)) {
+                        this.result['Commitment Period'] = fullText.split(val)[0] + ' ' + val;
+                        break;
+                    }
                 }
             } else if (txt.includes('Commit') && txt.includes('Fee:')) {
-                let fullText = getItem(this.$(elm));
+                let fullText = getItem(this.$(elm)).split('\n')[0];
                 const stockPrice = this.getStockPrice();
                 // console.log(stockPrice + "sp ", commitAmt+"ca");
                 let fee; 
