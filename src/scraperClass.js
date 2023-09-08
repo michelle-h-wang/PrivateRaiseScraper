@@ -7,8 +7,8 @@ const { get } = require("express/lib/response");
 const prompt=require("prompt-sync")({sigint:true});
 
 const PR = "https://www.privateraise.com";
-const username = 'bcoyne@arenaco.com';
-const password = 'Arena2022';
+const username = prompt("please enter username:")
+const password = prompt("please enter password:");
 
 
 function getItem(elm) {
